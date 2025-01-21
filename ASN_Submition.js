@@ -109,7 +109,7 @@ async function setDateInEDDDatePicker(driver, date, wrhs) {
             if (matchingDate == 1 || matchingDate == 2 || matchingDate == 3 || matchingDate == 4){   
                 date = "1/" + (20 + matchingDate[1]) + "/2025";
             } else {
-                date = "12/" + (13 + matchingDate[1]) + "/2024";
+                date = "1/" + (20 + matchingDate[1]) + "/2025";
             }
 
             // Mimic typing the desired date (formatted as MM/DD/YYYY)
