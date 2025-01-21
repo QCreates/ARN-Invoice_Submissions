@@ -106,8 +106,8 @@ async function setDateInEDDDatePicker(driver, date, wrhs) {
             //Currently Im manually inputing ship date because date isnt working for some reason. 20 is the first day before the first possible shape date since 10/18 is a friday the first possible is the following monday which is  the 20th of the month. If it was a monday leave the date as the monday
             //matchingDate[1] is the amount of days to add to the ship day. Replace-> Pickup: Wed, Dec 11, 2024 CST
             let matchingDate = shipDates.find(data => wrhss.split(',')[0] === data[0]);
-            if (matchingDate == 1 || matchingDate == 2){   
-                date = "12/" + (11 + matchingDate[1]) + "/2024";
+            if (matchingDate == 1 || matchingDate == 2 || matchingDate == 3 || matchingDate == 4){   
+                date = "1/" + (20 + matchingDate[1]) + "/2025";
             } else {
                 date = "12/" + (13 + matchingDate[1]) + "/2024";
             }
