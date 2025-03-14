@@ -11,6 +11,7 @@ const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
 const readline = require('readline');
 const { ConsoleLogEntry } = require('selenium-webdriver/bidi/logEntries');
+const { match } = require('assert');
 
 // Create an interface to get user input
 const rl = readline.createInterface({
@@ -27,14 +28,10 @@ rows.slice(1).forEach(row => {
     shipDates.push([row[0], row[2]]);
 });
 
-
-// Set Chrome options to connect to the existing Chrome session
 let chromeOptions = new chrome.Options();
-chromeOptions = chromeOptions.addArguments("--remote-debugging-port=9222");  // Use the correct port where Chrome is running
-chromeOptions = chromeOptions.debuggerAddress('localhost:9222');  // Connect to the existing Chrome session on this port
-
-// Initialize WebDriver and connect to the existing Chrome session
-let driver = new Builder().forBrowser('chrome')
+chromeOptions.debuggerAddress('127.0.0.1:9225');  // Connects to the existing session
+let driver = new Builder()
+    .forBrowser('chrome')
     .setChromeOptions(chromeOptions)
     .build();
 
@@ -56,7 +53,7 @@ async function setDateInDatePicker(driver, date) {
         return null;
     `);
 
-    if (datePicker) {
+    if (datePicker, date) {
         // Access the shadow root of the kat-input and input the date
         let inputField = await driver.executeScript(`
             let input = arguments[0].shadowRoot.querySelector('input[placeholder="MM/DD/YYYY"]');
@@ -66,7 +63,6 @@ async function setDateInDatePicker(driver, date) {
         if (inputField) {
             // Clear any existing value in the input field
             await inputField.clear();
-
             // Mimic typing the desired date (formatted as MM/DD/YYYY)
             await inputField.sendKeys(date);
 
@@ -80,7 +76,8 @@ async function setDateInDatePicker(driver, date) {
     
 }
 
-async function setDateInEDDDatePicker(driver, date) {
+async function setDateInEDDDatePicker(driver, date, wrhs) {
+    let wrhss = wrhs
     // Wait for the kat-date-picker element to be available
     let datePicker = await driver.executeScript(`
         let datePicker = document.querySelector('kat-date-picker#asnlabel-edd-picker');
@@ -103,6 +100,17 @@ async function setDateInEDDDatePicker(driver, date) {
         if (inputField) {
             // Clear any existing value in the input field
             await inputField.clear();
+            // CMD COMMAND: "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9225 --user-data-dir="C:\Users\qasem\chrome-profile"
+            // Must end all insances of chrome using task manager.
+            
+            //Currently Im manually inputing ship date because date isnt working for some reason. 20 is the first day before the first possible shape date since 10/18 is a friday the first possible is the following monday which is  the 20th of the month. If it was a monday leave the date as the monday
+            //matchingDate[1] is the amount of days to add to the ship day. Replace-> Pickup: Wed, Dec 11, 2024 CST
+            let matchingDate = shipDates.find(data => wrhss.split(',')[0] === data[0]);
+            if (matchingDate == 1 || matchingDate == 2 || matchingDate == 3 || matchingDate == 4){   
+                date = "1/" + (20 + matchingDate[1]) + "/2025";
+            } else {
+                date = "1/" + (20 + matchingDate[1]) + "/2025";
+            }
 
             // Mimic typing the desired date (formatted as MM/DD/YYYY)
             await inputField.sendKeys(date);
@@ -114,7 +122,6 @@ async function setDateInEDDDatePicker(driver, date) {
     } 
     
 }
-
 
 // Function to extract ARNs and ASNs from the page's DOM
 async function getARN(dom, sheet, pickupDate) {
@@ -138,21 +145,44 @@ async function getARN(dom, sheet, pickupDate) {
 
 async function pressConfirmAndSubmitButton(driver) {
     try {
-        // Locate the kat-button by its label
-        let confirmButton = await driver.wait(until.elementLocated(By.css('kat-button[label="Confirm and submit shipment"]')), 15000);
-        
-        if (confirmButton) {
+        // Wait for the kat-button element to be present in the DOM
+        await driver.wait(until.elementLocated(By.css('kat-button[label="Confirm and submit shipment"]')), 15000);
 
-            // Click the button using WebElement.click()
-            await confirmButton.click();
-            console.log("Confirm and Submit Shipment button clicked using WebElement.click().");
+        // Execute JavaScript to access the shadow DOM and click the nested button
+        let clicked = await driver.executeAsyncScript(`
+            const callback = arguments[arguments.length - 1];
+            const katButton = document.querySelector('kat-button[label="Confirm and submit shipment"]');
+
+            if (katButton && katButton.shadowRoot) {
+                // Retry clicking the button every 500ms for up to 5 seconds
+                let retries = 0;
+                const interval = setInterval(() => {
+                    const innerButton = katButton.shadowRoot.querySelector('button');
+                    if (innerButton) {
+                        innerButton.click();
+                        clearInterval(interval);
+                        callback(true); // Indicate success
+                    } else if (retries >= 10) { // Stop after 10 retries (5 seconds)
+                        clearInterval(interval);
+                        callback(false); // Indicate failure
+                    }
+                    retries++;
+                }, 500);
+            } else {
+                callback(false); // Element not found
+            }
+        `);
+
+        if (clicked) {
+            console.log("Confirm and Submit Shipment button clicked successfully.");
         } else {
-            console.log("Confirm and Submit Shipment button not found.");
+            console.log("Confirm and Submit Shipment button not found or could not be clicked.");
         }
     } catch (error) {
-        console.log("Error clicking the Confirm and Submit Shipment button: ", error);
+        console.log("Error clicking the Confirm and Submit Shipment button:", error);
     }
 }
+
 
 
 // Function to click buttons for "Continue to Step 2" and "Continue to Step 3"
@@ -169,11 +199,11 @@ async function continueToSteps(driver) {
 
         if (step2Button) {
             await driver.executeScript("arguments[0].click();", step2Button);
-            console.log("Clicked Continue to step 2");
+            //console.log("Clicked Continue to step 2");
         }
         if (step3Button) {
             await driver.executeScript("arguments[0].click();", step3Button);
-            console.log("Clicked Continue to step 3");
+            //console.log("Clicked Continue to step 3");
         }
 
         // Wait for page to load after clicking
@@ -184,7 +214,6 @@ async function continueToSteps(driver) {
     }
 }
 
-
 function hasWeekendsBetweenDates(startDateStr, endDateStr) {
     // Parse the input strings as UTC dates
     let startDate = new Date(`${startDateStr}T00:00:00Z`);  // Force UTC by appending 'T00:00:00Z'
@@ -193,13 +222,13 @@ function hasWeekendsBetweenDates(startDateStr, endDateStr) {
     // Boolean variable to track if there is a weekend
     let hasWeekend = false;
 
-    console.log(`Checking weekends between ${startDate.toUTCString()} and ${endDate.toUTCString()}`);
+    //console.log(`Checking weekends between ${startDate.toUTCString()} and ${endDate.toUTCString()}`);
 
     // Loop through each day between the start and end dates (inclusive)
     while (startDate <= endDate) {
         let dayOfWeek = startDate.getUTCDay();  // getUTCDay() returns 0 for Sunday, 6 for Saturday
 
-        console.log(`Checking date: ${startDate.toUTCString()}, Day of Week: ${dayOfWeek}`);
+        //console.log(`Checking date: ${startDate.toUTCString()}, Day of Week: ${dayOfWeek}`);
 
         // Check if the day is a weekend (Saturday or Sunday)
         if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -219,11 +248,13 @@ function hasWeekendsBetweenDates(startDateStr, endDateStr) {
 async function main() {
     try {
         var shipDate = "";
+        var dateToShip = "";
         let newDates = "";
         var pickupInpt = "";
-        rl.question('Please enter the pickup example: "Pickup: Thu, Sep 19, 2024 CDT" ', (pickupInput) => {
+        rl.question('Please enter the pickup example: "Pickup: Thu, Sep 19, 2024 CDT" : ', (pickupInput) => {
             pickupInpt = pickupInput;
-            rl.question('Please enter the ship date (MM/DD/YYYY): " ', (input) => {
+            rl.question('Please enter the ship date (MM/DD/YYYY): ', (input) => {
+                dateToShip = input;
                 let inputs = input.split("/")
                 shipDate = inputs[2] + "-" + inputs[0] + "-" + inputs[1];
                 newDates = input.split('-');
@@ -236,7 +267,12 @@ async function main() {
 
         // Extract ARNs and ASNs from the current page            
         await driver.sleep(10000);  // Wait for the page to load
+        let completelyRandomNum = 0;
         while (true) {
+            if(completelyRandomNum == 2){
+                break;
+            }
+            completelyRandomNum++;
             const pageSource = await driver.getPageSource();
             const dom = new JSDOM(pageSource);
             
@@ -334,6 +370,7 @@ async function main() {
                 console.log(shipDate, newDate);
                 let result = hasWeekendsBetweenDates(shipDate, newDate);
                 if (result){
+                    console.log("It has weekends!")
                     addedDays += 2;
                 }
                 // Click on "Continue to step 4"
@@ -342,7 +379,7 @@ async function main() {
                 `);
                 if (step4Button) {
                     await driver.executeScript("arguments[0].click();", step4Button);
-                    console.log("Clicked Continue to step 4");
+                    //console.log("Clicked Continue to step 4");
                 }
                 console.log(addedDays);
                 let shipDateArray = shipDate.split("-");
@@ -350,17 +387,21 @@ async function main() {
                 
                 shipDate = (shipDateArray[1] + "/" + shipDateArray[2] + "/" + shipDateArray[0])
                 deliveryDate = (deliveryDateArray[1] + "/" + (parseInt(deliveryDateArray[2])+addedDays) + "/" + deliveryDateArray[0])
-                await setDateInDatePicker(driver, shipDate);//
+                try {
+                    await setDateInDatePicker(driver, dateToShip);//
+                    await setDateInEDDDatePicker(driver, deliveryDate, wrhs);
+                    await driver.sleep(3000);  // Wait for the next page to load    
+                } catch(error){
+                    console.log("Couldn't find a date, skipping..");
+                }
                 
-                await setDateInEDDDatePicker(driver, deliveryDate);
-                await driver.sleep(3000);  // Wait for the next page to load
-
             } else {
                 console.log(`Couldn't find shipdate for warehouse: ${wrhs}`);
             }
+            await driver.sleep(2000);  
             
-            /*
-            try {
+            //pressConfirmAndSubmitButton(driver);//      Pickup: Mon, Nov 4, 2024 CST
+            /*try {
                 const pageSource = await driver.getPageSource();
                 const dom = new JSDOM(pageSource);
                 const nextButton = await driver.wait(until.elementLocated(By.xpath('kat-button[label="Confirm and submit shipment"]')), 10000);
@@ -369,7 +410,7 @@ async function main() {
                 await driver.sleep(3000);  // Wait for the next page to load
             } catch (error) {
                 console.log("Couldn't find submit button");
-            }
+            }/*
             Ask user for pickup. example- Pickup: Tue, Sep 17, 2024 CDT
             Ask user for ship date    
             */
