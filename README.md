@@ -24,13 +24,13 @@ pip install openpyxl<br />
 & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\chrome-debug"<br />
 
 # For ASN Submissions: <br />
-Navigate to https://vendorcentral.amazon.com and login.<br />
-Run “./python ASNBot.py” and input the pickup date in dd/mm/yyyy format.<br />
-Wait until complete and the status of each submission will be updated on the excel sheet.<br />
+1-Navigate to https://vendorcentral.amazon.com and login.<br />
+2-Run “./python ASNBot.py” and input the pickup date in dd/mm/yyyy format.<br />
+3-Wait until complete and the status of each submission will be updated on the excel sheet.<br />
 
 # For Invoice Submissions: <br />
-Make sure that you update invoices.xlsx with the right invoices. Date's may need to be adjusted.<br />
-Navigate to https://vendorcentral.amazon.com/hz/vendor/members/invoice-creation/search-shipments and make sure your logged in.<br />
-Click “Purchase Order Number(s)” in the second dropdown<br />
-Run “python ./InvoiceSubmissionBot.py”<br />
-If it doesn’t work, double-check that your date is the same as shown on the purchase order. Make sure to repeat step 1 if you restart the code.<br />
+1-Make sure that you update invoices.xlsx with the right invoices. Date's may need to be adjusted.<br />
+2-Navigate to https://vendorcentral.amazon.com/hz/vendor/members/invoice-creation/search-shipments and make sure your logged in.<br />
+3-Click “Purchase Order Number(s)” in the second dropdown<br />
+4-Run “python ./InvoiceSubmissionBot.py”<br />
+5-If it doesn’t work, double-check that your date is the same as shown on the purchase order. Make sure to repeat Step-2 if you restart the code.<br />
