@@ -28,6 +28,7 @@ Run “./python ASNBot.py” and input the pickup date in dd/mm/yyyy format.<br 
 Wait until complete and the status of each submission will be updated on the excel sheet.<br />
 
 # For Invoice Submissions: <br />
+Make sure that you update invoices.xlsx with the right invoices. Date's may need to be adjusted.<br />
 Navigate to https://vendorcentral.amazon.com/hz/vendor/members/invoice-creation/search-shipments and make sure your logged in.<br />
 Click “Purchase Order Number(s)” in the second dropdown<br />
 Run “python ./InvoiceSubmissionBot.py”<br />
