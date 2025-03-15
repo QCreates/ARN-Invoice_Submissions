@@ -17,11 +17,12 @@ pip install requests<br />
 pip install pandas<br />
 pip install openpyxl<br />
 <br />
+
 # How to run <br />
 <br />
 -Close all chrome tabs with task manager then run (Remove ‘&’ for cmd):<br />
 & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\chrome-debug"<br />
-<br />
+
 # For ASN Submissions: <br />
 Navigate to https://vendorcentral.amazon.com and login.<br />
 Run “./python ASNBot.py” and input the pickup date in dd/mm/yyyy format.<br />
