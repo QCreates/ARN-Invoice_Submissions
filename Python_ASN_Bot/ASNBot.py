@@ -212,7 +212,7 @@ async def cont_to_step(page, step_num):
         await button.click()
         print(f"Step {step_num} button clicked")
     else:
-        print("Error: Continue to step 2 button not found")
+        print(f"Error: Continue to step {step_num} button not found")
 
 async def fill_tracking_numbers(page):
     """
