@@ -170,7 +170,7 @@ async def extract_pg_data(page, formatted_date_input):
             if formatted_date_input in pickup_date:
                 arn_link = arn_link.replace("shipmentdetail?rr=", "asnsubmission?arn=")
                 arn_link = arn_link.replace("&asn=", "&asnId=")
-                print(f"{arn}: {arn_link}---{pickup_date}---{ship_location.split(",")[0]}")
+                print(f"{arn}: {arn_link}---{pickup_date}---{ship_location.split(',')[0]}")
                 table_data[arn] = [arn_link, pickup_date, ship_location.split(",")[0]]
 
     if table_data:
@@ -409,7 +409,7 @@ async def run_script():
             except TypeError as wrhsE:
                 print(f"❌Error with warehouse {value[2]}... {wrhsE}\n\n")
                 submission_status = "Warehouse Not Found"
-            except e:
+            except Exception as e:
                 print(f"❌Error with ARN {key}... {e}\n\n")
                 submission_status = "Error"
 
