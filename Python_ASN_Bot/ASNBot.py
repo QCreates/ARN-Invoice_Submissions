@@ -170,7 +170,7 @@ async def extract_pg_data(page, formatted_date_input):
             if formatted_date_input in pickup_date:
                 arn_link = arn_link.replace("shipmentdetail?rr=", "asnsubmission?arn=")
                 arn_link = arn_link.replace("&asn=", "&asnId=")
-                print(f"{arn}: {arn_link}---{pickup_date}---{ship_location.split(",")[0]}")
+                print(f"{arn}: {arn_link}---{pickup_date}---{ship_location.split(',')[0]}")
                 table_data[arn] = [arn_link, pickup_date, ship_location.split(",")[0]]
 
     if table_data:
