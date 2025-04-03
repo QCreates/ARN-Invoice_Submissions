@@ -409,7 +409,7 @@ async def run_script():
             except TypeError as wrhsE:
                 print(f"❌Error with warehouse {value[2]}... {wrhsE}\n\n")
                 submission_status = "Warehouse Not Found"
-            except e:
+            except Exception as e:
                 print(f"❌Error with ARN {key}... {e}\n\n")
                 submission_status = "Error"
 
