@@ -26,6 +26,9 @@ def format_date(user_input):
     except ValueError:
         return "❌ Invalid date format. Please enter date as MM/DD/YYYY."
 
+def findNumCartons(pack, master):
+    print()
+
 # Don't ask how this function works it just does
 async def connect_browser():
     """Connect to an already running Chrome instance via CDP."""
@@ -212,38 +215,124 @@ async def run_script():
             names=["Wrhs", "ASIN", "PO", "Pack"]
         )
         shipment_dict = {
-        row['ASIN']: {'Wrhs': row['Wrhs'], 'PO': row['PO'], 'Pack': row['Pack']}
+        f"{row['ASIN']}::{(row['Wrhs']).split()[0] if str(row['Wrhs']) != 'nan' else 'Default'}": {'PO': row['PO'], 'Pack': row['Pack']}
             for _, row in shipment_data.iterrows()
         }
 
         """Perform actions"""
+        print(shipment_dict.keys())
         for arn, wrhs, link in arn_list:
             try:
                 await page.goto(link)  # Navigate to the link
-                print(wrhs)
+                print("_________________________________\n", wrhs)
                 await cont_to_step(page, 2)
-                
                 # Extract the info from the cell after moving to step 2
-                all_pack_info = await extract_pack_info(page)
-
-
-                """ FILL OUT PACK INFORMATION HERE TO CONFIRM THE LABEL"""
-                for asn, pack, po in all_pack_info:
-                    print(f"VENDORCENTRAL ___ ASN: {asn}       Pack: {pack}    PO:{po}")
-                    if (shipment_dict.get(asn)['PO'] == po):
-                        print(f"SHEET         ___ ASN: {asn} Master Pack: {shipment_dict.get(asn)['Pack']}   PO{shipment_dict.get(asn)['PO']}")
-                    else:
-                        print(f"SHEET         NOT FOUND... ASN: {asn}, PO: {po}, S_PO: {shipment_dict.get(asn)['PO']}")
-
-
-                if(len(all_pack_info) > 0):
-                    log_data.append([arn, wrhs, link, len(all_pack_info), "Complete"])
-                else:
-                    log_data.append([arn, wrhs, link, len(all_pack_info), "Already Completed"])
-
             except Exception as e:
                 print("error lolz", e)
                 log_data.append([arn, wrhs, link, 0, "Error"])
+            try:
+                await page.wait_for_selector("input[name='packingMethod']", timeout=2000)
+                radio_buttons = await page.query_selector_all("input[name='packingMethod']")
+                if radio_buttons:
+                    await radio_buttons[0].click(force=True)
+                
+                all_pack_info = await extract_pack_info(page)
+
+                """ FILL OUT PACK INFORMATION HERE TO CONFIRM THE LABEL"""
+                kat_index = 2
+                confirm_index = 1
+                for asn, pack, po in all_pack_info:
+                    dict_key = f"{asn}::{wrhs}"
+                    print(f"VENDORCENTRAL ___ ASN: {asn}       Pack: {pack}    PO:{po}")
+
+                    masterpack = int(shipment_dict.get(dict_key)['Pack'])
+                    pack = int(pack)
+                    unit = 0
+                    cartons = 0
+                    if (pack < masterpack):
+                        unit = 1
+                        cartons = pack
+                    elif (pack % masterpack != 0):
+                        print("INDIVISIBLE PACK")
+                    else:
+                        unit = masterpack
+                        cartons = pack/masterpack
+
+                    if (shipment_dict.get(dict_key)['PO'] == po):
+                        print(f"SHEET         ___ ASN: {asn} Master Pack: {shipment_dict.get(dict_key)['Pack']}   PO{shipment_dict.get(dict_key)['PO']}")
+                        print(f"UnitPerCartons: {unit}          Cartons: {cartons}")
+                        # Wait for at least 2 kat-inputs to be present in the DOM
+                        await page.wait_for_function(
+                            "() => document.querySelectorAll('kat-input').length >= 2",
+                            timeout=15000
+                        )
+                        """FOR PACK"""
+                        pack_args = {"text": unit, "index": kat_index}
+                        total_inputs = await page.evaluate(
+                            """({ text, index }) => {
+                                const allKatInputs = Array.from(document.querySelectorAll('kat-input'));
+                                const second = allKatInputs[index];
+
+                                if (second && second.shadowRoot) {
+                                    const inner = second.shadowRoot.querySelector('input');
+                                    if (inner) {
+                                        inner.value = String(text);  // 🔤 convert to string
+                                        inner.dispatchEvent(new Event('input', { bubbles: true }));
+                                        inner.dispatchEvent(new Event('change', { bubbles: true }));  // 🔁 trigger change
+                                    }
+                                }
+
+                                return allKatInputs.length;
+                            }""",
+                            pack_args
+                        )
+
+                        """FOR MASTERPACK"""
+                        cart_args = {"text": cartons, "index": kat_index + 1}
+                        total_inputs = await page.evaluate(
+                            """({ text, index }) => {
+                                const allKatInputs = Array.from(document.querySelectorAll('kat-input'));
+                                const second = allKatInputs[index];
+
+                                if (second && second.shadowRoot) {
+                                    const inner = second.shadowRoot.querySelector('input');
+                                    if (inner) {
+                                        inner.value = String(text);  // 🔤 convert to string
+                                        inner.dispatchEvent(new Event('input', { bubbles: true }));
+                                        inner.dispatchEvent(new Event('change', { bubbles: true }));  // 🔁 trigger change
+                                    }
+                                }
+
+                                return allKatInputs.length;
+                            }""",
+                            cart_args
+                        )
+
+
+                    else:
+                        print(f"SHEET         NOT FOUND... ASN: {asn}, PO: {po}, S_PO: {shipment_dict.get(dict_key)['PO']}")
+                    print(kat_index)
+    #                await conf_buttons[confirm_index].click(force=True)
+
+                    kat_index += 3
+                    confirm_index += 1
+                try:
+                    conf_button = await page.query_selector('kat-button[label="Confirm all SKUs"]')
+                    await conf_button.click(force=True)
+                    new_conf_button = await page.query_selector('kat-button[label="Confirm and print labels"]')
+                    await new_conf_button.click(force=True)
+                    log_data.append([arn, wrhs, link, len(all_pack_info), "Complete"])
+                    await asyncio.sleep(2)  # Wait to allow submission process
+
+                except Exception as e:
+                    log_data.append([arn, wrhs, link, len(all_pack_info), "Error"])
+                    print("Couldn't Find a Submit Button")
+
+                if(len(all_pack_info) <= 0):
+                    log_data.append([arn, wrhs, link, len(all_pack_info), "Already Completed"])
+                    
+            except Exception as e:
+                print(f"Couldn't find radio button input\n{e}")
 
         """ Save DataFrame to Excel """
         df = pd.DataFrame(log_data, columns=["ARN", "Warehouse", "Link", "# Of Packs", "Status"])
