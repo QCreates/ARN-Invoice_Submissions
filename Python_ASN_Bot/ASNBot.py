@@ -20,7 +20,11 @@ def format_date(user_input):
     Output: "Mar 10, 2025"
     """
     try:
-        formatted_date = datetime.strptime(user_input, "%m/%d/%Y").strftime("%b %d, %Y")
+        dt = datetime.strptime(user_input, "%m/%d/%Y")
+        mon = dt.strftime("%b")      # e.g. "Jul"
+        day = dt.day                 # e.g. 4 instead of 04
+        year = dt.year               # e.g. 2025
+        formatted_date = f"{mon} {day}, {year}"
         print(formatted_date)
         return formatted_date
     except ValueError:

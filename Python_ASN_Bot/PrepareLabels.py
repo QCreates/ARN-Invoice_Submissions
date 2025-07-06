@@ -20,7 +20,11 @@ def format_date(user_input):
     Output: "Mar 10, 2025"
     """
     try:
-        formatted_date = datetime.strptime(user_input, "%m/%d/%Y").strftime("%b %d, %Y")
+        dt = datetime.strptime(user_input, "%m/%d/%Y")
+        mon = dt.strftime("%b")      # e.g. "Jul"
+        day = dt.day                 # e.g. 4 instead of 04
+        year = dt.year               # e.g. 2025
+        formatted_date = f"{mon} {day}, {year}"
         print(formatted_date)
         return formatted_date
     except ValueError:
@@ -152,7 +156,7 @@ async def paginate_and_extract(page, formatted_date_input):
     return table_data
 
 async def cont_to_step(page, step_num):
-    await page.wait_for_selector(f"kat-button[label='Continue to step {step_num}']", timeout=20000)
+    await page.wait_for_selector(f"kat-button[label='Continue to step {step_num}']", timeout=2000)
     button = await page.query_selector(f"kat-button[label='Continue to step {step_num}']")
     try:
         await button.click()
@@ -161,14 +165,19 @@ async def cont_to_step(page, step_num):
         print(f"Error: Cannot press step {step_num} button")
 
 async def extract_pack_info(page):
+
     total_packs = []
-    elements = await page.query_selector_all("div.sc-hKwDye.sc-eCImPb.sc-jRQBWg.blEmWz.kROjxl.iNOZJk.rdt_TableCell")
+    elements = await page.query_selector_all("div.rdt_TableCell")
     asin_elements = await page.query_selector_all("div.sb-asinRow-detail-div")
 
-    for i in range(len(elements)):
-        packs = await elements[i].inner_text()
+    pack_i = 10
+
+    for i in range(len(asin_elements)):
+        packs = await elements[pack_i].inner_text()
         asin = await asin_elements[i].inner_text()
+        print(asin.split("ASIN:")[1].split("Model:")[0].strip(), packs.split("/")[1].strip(), asin.split("Purchase order:")[1].split("ASIN:")[0].strip())
         total_packs.append([asin.split("ASIN:")[1].split("Model:")[0].strip(), packs.split("/")[1].strip(), asin.split("Purchase order:")[1].split("ASIN:")[0].strip()])
+        pack_i += 6
     return total_packs
 
 async def run_script():
@@ -208,32 +217,34 @@ async def run_script():
 
         log_data = []
         shipment_data = pd.read_excel(
-            shipment_file, 
+            shipment_file,
             skiprows=7, 
             usecols="A,C,D,M", 
             header=None, 
             names=["Wrhs", "ASIN", "PO", "Pack"]
         )
+        print(shipment_data.head())
         shipment_dict = {
         f"{row['ASIN']}::{(row['Wrhs']).split()[0] if str(row['Wrhs']) != 'nan' else 'Default'}": {'PO': row['PO'], 'Pack': row['Pack']}
             for _, row in shipment_data.iterrows()
         }
-
+ 
         """Perform actions"""
         print(shipment_dict.keys())
         for arn, wrhs, link in arn_list:
             try:
+                await asyncio.sleep(1)
                 await page.goto(link)  # Navigate to the link
-                print("_________________________________\n", wrhs)
+                print("\n_________________________________\n", wrhs)
                 await cont_to_step(page, 2)
                 # Extract the info from the cell after moving to step 2
             except Exception as e:
                 print("error lolz", e)
                 log_data.append([arn, wrhs, link, 0, "Error"])
             try:
-                await page.wait_for_selector("input[name='packingMethod']", timeout=2000)
+                await page.wait_for_selector("input[name='packingMethod']", timeout=5000)
                 radio_buttons = await page.query_selector_all("input[name='packingMethod']")
-                if radio_buttons:
+                if radio_buttons and len(radio_buttons) > 0:
                     await radio_buttons[0].click(force=True)
                 
                 all_pack_info = await extract_pack_info(page)
@@ -241,6 +252,7 @@ async def run_script():
                 """ FILL OUT PACK INFORMATION HERE TO CONFIRM THE LABEL"""
                 kat_index = 2
                 confirm_index = 1
+                
                 for asn, pack, po in all_pack_info:
                     dict_key = f"{asn}::{wrhs}"
                     print(f"VENDORCENTRAL ___ ASN: {asn}       Pack: {pack}    PO:{po}")
@@ -266,47 +278,36 @@ async def run_script():
                             "() => document.querySelectorAll('kat-input').length >= 2",
                             timeout=15000
                         )
-                        """FOR PACK"""
-                        pack_args = {"text": unit, "index": kat_index}
-                        total_inputs = await page.evaluate(
-                            """({ text, index }) => {
-                                const allKatInputs = Array.from(document.querySelectorAll('kat-input'));
-                                const second = allKatInputs[index];
+                        # Wait until kat-inputs are available
+                        await page.wait_for_function("() => document.querySelectorAll('kat-input').length >= 2", timeout=10000)
 
-                                if (second && second.shadowRoot) {
-                                    const inner = second.shadowRoot.querySelector('input');
-                                    if (inner) {
-                                        inner.value = String(text);  // 🔤 convert to string
-                                        inner.dispatchEvent(new Event('input', { bubbles: true }));
-                                        inner.dispatchEvent(new Event('change', { bubbles: true }));  // 🔁 trigger change
-                                    }
-                                }
+                        # Typing into Units Per Carton
+                        unit_input = await page.evaluate_handle("""
+                        (index) => {
+                            const katInput = document.querySelectorAll('kat-input')[index];
+                            return katInput?.shadowRoot?.querySelector('input');
+                        }
+                        """, kat_index)
 
-                                return allKatInputs.length;
-                            }""",
-                            pack_args
-                        )
+                        if unit_input:
+                            await unit_input.evaluate("el => el.value = ''")
+                            await unit_input.type(str(unit), delay=50)
+                        else:
+                            print("❌ Could not find Units Per Carton input field")
 
-                        """FOR MASTERPACK"""
-                        cart_args = {"text": cartons, "index": kat_index + 1}
-                        total_inputs = await page.evaluate(
-                            """({ text, index }) => {
-                                const allKatInputs = Array.from(document.querySelectorAll('kat-input'));
-                                const second = allKatInputs[index];
+                        # Typing into Cartons
+                        carton_input = await page.evaluate_handle("""
+                        (index) => {
+                            const katInput = document.querySelectorAll('kat-input')[index];
+                            return katInput?.shadowRoot?.querySelector('input');
+                        }
+                        """, kat_index + 1)
 
-                                if (second && second.shadowRoot) {
-                                    const inner = second.shadowRoot.querySelector('input');
-                                    if (inner) {
-                                        inner.value = String(text);  // 🔤 convert to string
-                                        inner.dispatchEvent(new Event('input', { bubbles: true }));
-                                        inner.dispatchEvent(new Event('change', { bubbles: true }));  // 🔁 trigger change
-                                    }
-                                }
-
-                                return allKatInputs.length;
-                            }""",
-                            cart_args
-                        )
+                        if carton_input:
+                            await carton_input.evaluate("el => el.value = ''")
+                            await carton_input.type(str(cartons), delay=50)
+                        else:
+                            print("❌ Could not find Cartons input field")
 
 
                     else:
@@ -317,16 +318,22 @@ async def run_script():
                     kat_index += 3
                     confirm_index += 1
                 try:
+                    print("submitting...")
+                    await page.screenshot(path=f"screenshot_{arn}.png")
+                    
                     conf_button = await page.query_selector('kat-button[label="Confirm all SKUs"]')
                     await conf_button.click(force=True)
+
                     new_conf_button = await page.query_selector('kat-button[label="Confirm and print labels"]')
                     await new_conf_button.click(force=True)
+
+
                     log_data.append([arn, wrhs, link, len(all_pack_info), "Complete"])
                     await asyncio.sleep(2)  # Wait to allow submission process
 
                 except Exception as e:
                     log_data.append([arn, wrhs, link, len(all_pack_info), "Error"])
-                    print("Couldn't Find a Submit Button")
+                    print("Couldn't Find a Submit Button", e)
 
                 if(len(all_pack_info) <= 0):
                     log_data.append([arn, wrhs, link, len(all_pack_info), "Already Completed"])
