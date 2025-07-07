@@ -156,7 +156,7 @@ async def paginate_and_extract(page, formatted_date_input):
     return table_data
 
 async def cont_to_step(page, step_num):
-    await page.wait_for_selector(f"kat-button[label='Continue to step {step_num}']", timeout=2000)
+    await page.wait_for_selector(f"kat-button[label='Continue to step {step_num}']", timeout=5000)
     button = await page.query_selector(f"kat-button[label='Continue to step {step_num}']")
     try:
         await button.click()
