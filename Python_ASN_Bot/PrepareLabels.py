@@ -109,7 +109,7 @@ async def extract_pg_data(page, formatted_date_input):
         arn_link = f"https://vendorcentral.amazon.com/kt/vendor/members/afi-shipment-mgr/labelmapping?arn={arn}&isLegacy=false"
 
         # Extract Pickup Date
-        pickup_element = await row.query_selector("kat-label[id^='sq-table-sl2'][text^='Pickup:']")
+        pickup_element = await row.query_selector("kat-label[id^='sq-table-date-']")
         pickup_date = await pickup_element.get_attribute("text") if pickup_element else None
 
         # Extract Ship From & Ship To Location
@@ -170,7 +170,7 @@ async def extract_pack_info(page):
     elements = await page.query_selector_all("div.rdt_TableCell")
     asin_elements = await page.query_selector_all("div.sb-asinRow-detail-div")
 
-    pack_i = 10
+    pack_i = 3
 
     for i in range(len(asin_elements)):
         packs = await elements[pack_i].inner_text()
