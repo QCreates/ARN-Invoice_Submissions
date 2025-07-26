@@ -170,11 +170,16 @@ async def extract_pack_info(page):
     elements = await page.query_selector_all("div.rdt_TableCell")
     asin_elements = await page.query_selector_all("div.sb-asinRow-detail-div")
 
-    pack_i = 3
+    pack_i = 10
 
     for i in range(len(asin_elements)):
+        if pack_i >= len(elements):
+            print(f"⚠️ Skipping pack_i={pack_i}, only {len(elements)} cells found")
+            break
+        
         packs = await elements[pack_i].inner_text()
         asin = await asin_elements[i].inner_text()
+        print(asin)
         print(asin.split("ASIN:")[1].split("Model:")[0].strip(), packs.split("/")[1].strip(), asin.split("Purchase order:")[1].split("ASIN:")[0].strip())
         total_packs.append([asin.split("ASIN:")[1].split("Model:")[0].strip(), packs.split("/")[1].strip(), asin.split("Purchase order:")[1].split("ASIN:")[0].strip()])
         pack_i += 6
@@ -241,6 +246,7 @@ async def run_script():
             except Exception as e:
                 print("error lolz", e)
                 log_data.append([arn, wrhs, link, 0, "Error"])
+            all_pack_info = []
             try:
                 await page.wait_for_selector("input[name='packingMethod']", timeout=5000)
                 radio_buttons = await page.query_selector_all("input[name='packingMethod']")
@@ -332,13 +338,20 @@ async def run_script():
                     await asyncio.sleep(2)  # Wait to allow submission process
 
                 except Exception as e:
-                    log_data.append([arn, wrhs, link, len(all_pack_info), "Error"])
-                    print("Couldn't Find a Submit Button", e)
+                    try:
+                        await page.click('kat-button >> text="Confirm all SKUs"')
+                        await page.click('kat-button >> text="Confirm and print labels"')
+                        log_data.append([arn, wrhs, link, len(all_pack_info), "Shadow Button Clicked"])
+                        print("Submit button clicked")
+                    except Exception as ex:
+                        log_data.append([arn, wrhs, link, len(all_pack_info), "Submit not clicked"])
+                        print("Couldn't Find a Submit Button", e)
 
                 if(len(all_pack_info) <= 0):
                     log_data.append([arn, wrhs, link, len(all_pack_info), "Already Completed"])
                     
             except Exception as e:
+                log_data.append([arn, wrhs, link, len(all_pack_info), "Err"])
                 print(f"Couldn't find radio button input\n{e}")
 
         """ Save DataFrame to Excel """
