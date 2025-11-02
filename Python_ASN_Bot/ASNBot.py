@@ -189,6 +189,7 @@ async def paginate_and_extract(page, formatted_date_input):
     Extract ARN's using function above and click the 'Next' button until no more pages exist.
     """
     table_data = {}
+    cancel_counter = 1 
 
     while True:
         try:
@@ -197,6 +198,11 @@ async def paginate_and_extract(page, formatted_date_input):
             print(f"New Data Length: {len(new_data)}")
             next_button = await page.query_selector("div#sq-pag-next-div")
             if (next_button and len(new_data) > 0):
+                print("➡️ Next page found! Clicking 'Next'...")
+                await next_button.click()
+                await asyncio.sleep(3)  # Wait for the next page to load
+            elif (next_button and len(new_data) == 0 and cancel_counter != 0) :
+                cancel_counter -= 1
                 print("➡️ Next page found! Clicking 'Next'...")
                 await next_button.click()
                 await asyncio.sleep(3)  # Wait for the next page to load
